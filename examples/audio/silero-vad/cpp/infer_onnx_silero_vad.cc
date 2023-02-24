@@ -16,14 +16,16 @@ int main(int argc, char* argv[]) {
 
   Vad vad(model_file);
   // custom config, but must be set before init
-  // vad.setAudioCofig(16000, 64, 0.5f, 0, 0);
-  vad.init();
-  vad.loadAudio(audio_file);
+  vad.SetConfig(16000, 32, 0.45f, 200, 0, 0);
+  vad.Init();
+  vad.LoadWav(audio_file);
   vad.Predict();
   std::vector<std::map<std::string, float>> result = vad.getResult();
   for (auto& res : result) {
     std::cout << "speak start: " << res["start"] << " s, end: " << res["end"]
-              << " s" << std::endl;
+              << " s | ";
   }
+  std::cout << std::endl;
+
   return 0;
 }

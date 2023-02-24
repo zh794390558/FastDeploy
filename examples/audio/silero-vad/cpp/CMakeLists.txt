@@ -4,7 +4,11 @@ project(silero_vad)
 set(CMAKE_CXX_STANDARD 11)
 
 # 指定下载解压后的fastdeploy库路径
-option(FASTDEPLOY_INSTALL_DIR "Path of downloaded fastdeploy sdk.")
+set(FASTDEPLOY_INSTALL_DIR "fdlib/fastdeploy-linux-x64-1.0.4" CACHE STRING force)
+
+if(NOT EXISTS ${FASTDEPLOY_INSTALL_DIR})
+    message(FATAL_ERROR "Please using cmake -B build -DFASTDEPLOY_INSTALL_DIR=${FASTDEPLOY_INSTALL_DIR}")
+endif()
 
 include(${FASTDEPLOY_INSTALL_DIR}/FastDeploy.cmake)
 
