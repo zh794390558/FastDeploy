@@ -109,6 +109,14 @@ bool Vad::ForwardChunk(std::vector<float>& chunk) {
     inputTensors_[3].name = "c";
     inputTensors_[3].SetExternalData(hc_node_dims_, fastdeploy::FDDataType::FP32,
                                      c_.data());
+
+    if (!Infer(inputTensors_, &outputTensors_)){
+        return false;
+    }
+ 
+    // Push forward sample index
+    assert(chunk.size() == current_chunk_size_);
+    current_sample_ += chunk.size();
     return true;
 }
 
@@ -133,16 +141,13 @@ bool Vad::Predict() {
         current_chunk_size_ = end - start;
 
         std::vector<float> r{&inputWav_[0] + start, &inputWav_[0] + end};
-        ForwardChunk(r);
-
-        if (!Infer(inputTensors_, &outputTensors_)) {
+        assert(r.size() == current_chunk_size_);
+        
+        if (!ForwardChunk(r)) {
             fastdeploy::FDERROR << "Failed to inference while using model:"
                                 << ModelName() << "." << std::endl;
             return false;
         }
-
-        // Push forward sample index
-        current_sample_ += current_chunk_size_;
 
         Postprocess();
     }
@@ -156,7 +161,6 @@ bool Vad::Postprocess() {
     std::memcpy(h_.data(), hn, h_.size() * sizeof(float));
     auto *cn = static_cast<float *>(outputTensors_[2].MutableData());
     std::memcpy(c_.data(), cn, c_.size() * sizeof(float));
-
 
     if (outputProb_ < threshold_ && !triggerd_ ) {
         // 1. Silence
