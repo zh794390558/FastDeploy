@@ -62,7 +62,7 @@ class Vad : public fastdeploy::FastDeployModel {
   //getResult(float removeThreshold = 1.6, float expandHeadThreshold = 0.32,
   //          float expandTailThreshold = 0, float mergeThreshold = 0.3);
   std::vector<std::map<std::string, float>>
-  getResult(float removeThreshold = 0.0, float expandHeadThreshold = 0.0,
+  GetResult(float removeThreshold = 0.0, float expandHeadThreshold = 0.0,
             float expandTailThreshold = 0, float mergeThreshold = 0.0);
 
   int SampleRate() const { return sample_rate_; }

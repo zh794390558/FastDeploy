@@ -41,8 +41,6 @@ void Vad::SetConfig(int sr, int frame_ms, float threshold,
 }
 
 void Vad::Reset() {
-    h_.resize(size_hc_);
-    c_.resize(size_hc_);
     std::memset(h_.data(), 0.0f, h_.size() * sizeof(float));
     std::memset(c_.data(), 0.0f, c_.size() * sizeof(float));
     triggerd_ = false;
@@ -51,19 +49,23 @@ void Vad::Reset() {
 }
 
 bool Vad::Initialize() {
+    // input & output holder
     inputTensors_.resize(4);
     outputTensors_.resize(3);
 
+    // input buffer
     input_.resize(window_size_samples_);
-
+    // input shape
     input_node_dims_.emplace_back(1);
     input_node_dims_.emplace_back(window_size_samples_);
-
+    // sr buffer
     sr_.resize(1);
     sr_[0] = sample_rate_;
+    // hidden state buffer
+    h_.resize(size_hc_);
+    c_.resize(size_hc_);
 
     Reset();
-
 
     // InitRuntime
     if (!InitRuntime()) {
@@ -208,7 +210,7 @@ bool Vad::Postprocess() {
     return true;
 }
 
-std::vector<std::map<std::string, float>> Vad::getResult(
+std::vector<std::map<std::string, float>> Vad::GetResult(
         float removeThreshold, float expandHeadThreshold, float expandTailThreshold,
         float mergeThreshold) {
     float audioLength = 1.0 * wavReader_.num_samples() / sample_rate_;

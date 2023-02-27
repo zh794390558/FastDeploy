@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
   vad.Init();
   vad.LoadWav(audio_file);
   vad.Predict();
-  std::vector<std::map<std::string, float>> result = vad.getResult();
+  std::vector<std::map<std::string, float>> result = vad.GetResult();
   for (auto& res : result) {
     std::cout << "speak start: " << res["start"] << " s, end: " << res["end"]
               << " s | ";
