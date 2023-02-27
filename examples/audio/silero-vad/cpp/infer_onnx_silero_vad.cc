@@ -14,18 +14,50 @@ int main(int argc, char* argv[]) {
   std::string model_file = argv[1];
   std::string audio_file = argv[2];
 
+
   Vad vad(model_file);
   // custom config, but must be set before init
   vad.SetConfig(16000, 32, 0.45f, 200, 0, 0);
   vad.Init();
-  vad.LoadWav(audio_file);
-  vad.Predict();
+
+  int window_size_samples = vad.WindowSizeSamples();
+
+  std::vector<float> inputWav; // [0, 1]
+
+  wav::WavReader wav_reader = wav::WavReader(audio_file);
+  auto num_samples = wav_reader.num_samples();
+  inputWav.resize(num_samples);
+  for (int i = 0; i < num_samples; i++) {
+        inputWav[i] = wav_reader.data()[i]  / 32768;
+  }
+
+  for (int64_t j = 0; j < num_samples; j += window_size_samples) {
+      auto start = j;
+      auto end = start + window_size_samples >= num_samples ? num_samples : start + window_size_samples;
+      auto current_chunk_size = end - start;
+
+      std::vector<float> r{&inputWav[0] + start, &inputWav[0] + end};
+      assert(r.size() == current_chunk_size);
+      
+      if (!vad.ForwardChunk(r)) {
+          std::cerr << "Failed to inference while using model:"
+                              << vad.ModelName() << "." << std::endl;
+          return false;
+      }
+
+      Vad::State s = vad.Postprocess();
+      std::cout << s << " ";
+  }
+  std::cout << std::endl;
+
   std::vector<std::map<std::string, float>> result = vad.GetResult();
   for (auto& res : result) {
     std::cout << "speak start: " << res["start"] << " s, end: " << res["end"]
               << " s | ";
   }
-  std::cout << std::endl;
+  std::cout << "\b\b " << std::endl;
+
+  vad.Reset();
 
   return 0;
 }

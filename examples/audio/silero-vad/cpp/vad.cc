@@ -12,6 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "vad.h"
+#include <iomanip>
+
+    
+#ifdef NDEBUG     
+#define LOG_DEBUG                                                                             \
+  ::fastdeploy::FDLogger(true, "[DEBUG]") << __REL_FILE__ << "(" << __LINE__                  \
+                           << ")::" << __FUNCTION__ << "\t"
+#else
+#define LOG_DEBUG                                                                              \
+  ::fastdeploy::FDLogger(false, "[DEBUG]") << __REL_FILE__ << "(" << __LINE__                  \
+                           << ")::" << __FUNCTION__ << "\t"
+#endif
+
+Vad::Vad(const std::string& model_file,
+      const fastdeploy::RuntimeOption& custom_option /* = fastdeploy::RuntimeOption() */) {
+    valid_cpu_backends = {fastdeploy::Backend::ORT,
+                          fastdeploy::Backend::OPENVINO};
+    valid_gpu_backends = {fastdeploy::Backend::ORT, fastdeploy::Backend::TRT};
+
+    runtime_option = custom_option;
+    // ORT backend
+    runtime_option.UseCpu();
+    runtime_option.UseOrtBackend();
+    runtime_option.model_format = fastdeploy::ModelFormat::ONNX;
+    // grap opt level
+    runtime_option.ort_option.graph_optimization_level = 99;
+    // one-thread
+    runtime_option.ort_option.intra_op_num_threads = 1;
+    runtime_option.ort_option.inter_op_num_threads = 1;
+    // model path
+    runtime_option.model_file = model_file;
+  }
+
+void Vad::Init() {
+    std::call_once(init_, [&]() {
+      initialized = Initialize(); 
+    });
+}
+
+std::string Vad::ModelName() const { return "VAD"; }
 
 void Vad::SetConfig(int sr, int frame_ms, float threshold,
                         int min_silence_duration_ms, int speech_pad_left_ms, int speech_pad_right_ms) {
@@ -43,9 +83,15 @@ void Vad::SetConfig(int sr, int frame_ms, float threshold,
 void Vad::Reset() {
     std::memset(h_.data(), 0.0f, h_.size() * sizeof(float));
     std::memset(c_.data(), 0.0f, c_.size() * sizeof(float));
+
     triggerd_ = false;
     temp_end_ = 0;
     current_sample_ = 0;
+
+    speakStart_.clear();
+    speakEnd_.clear();
+
+    states_.clear();
 }
 
 bool Vad::Initialize() {
@@ -53,8 +99,6 @@ bool Vad::Initialize() {
     inputTensors_.resize(4);
     outputTensors_.resize(3);
 
-    // input buffer
-    input_.resize(window_size_samples_);
     // input shape
     input_node_dims_.emplace_back(1);
     input_node_dims_.emplace_back(window_size_samples_);
@@ -77,27 +121,11 @@ bool Vad::Initialize() {
     return true;
 }
 
-void Vad::LoadWav(const std::string &wavPath) {
-    wavReader_ = wav::WavReader(wavPath);
-    auto num_samples = wavReader_.num_samples();
-    inputWav_.resize(num_samples);
-    for (int i = 0; i < num_samples; i++) {
-        inputWav_[i] = wavReader_.data()[i]  / 32768;
-    }
-    fastdeploy::FDINFO << "load wav done successfully.";
-}
-
-void Vad::Pcm2Float(const char* pcm_bytes){
-    std::memcpy(input_.data(), pcm_bytes, window_size_samples_ * sizeof(int16_t));
-    for (int i = 0; i < window_size_samples_; i++)
-    {
-        input_[i] = static_cast<float>(input_[i]) / 32768; // int16_t normalized to float
-    }
-}
-
 bool Vad::ForwardChunk(std::vector<float>& chunk) {
     // last chunk may not be window_size_samples_
     input_node_dims_.back() = chunk.size();
+    assert(window_size_samples_>= chunk.size());
+    current_chunk_size_ = chunk.size();
 
     inputTensors_[0].name = "input";
     inputTensors_[0].SetExternalData(input_node_dims_, fastdeploy::FDDataType::FP32,
@@ -117,46 +145,11 @@ bool Vad::ForwardChunk(std::vector<float>& chunk) {
     }
  
     // Push forward sample index
-    assert(chunk.size() == current_chunk_size_);
-    current_sample_ += chunk.size();
+    current_sample_ += current_chunk_size_;
     return true;
 }
 
-bool Vad::Predict() {
-    if (wavReader_.sample_rate() != sample_rate_) {
-        fastdeploy::FDINFO << "The sampling rate of the audio file is " << wavReader_.sample_rate() << std::endl;
-        fastdeploy::FDINFO << "The set sample rate is " << sample_rate_ << std::endl;
-        fastdeploy::FDERROR << "The sampling rate of the audio file is not equal "
-                               "to the sampling rate set by the program. "
-                            << "Please make it equal. "
-                            << "You can modify the audio file sampling rate, "
-                            << "or use setAudioCofig to modify the program's "
-                               "sampling rate and other configurations."
-                            << std::endl;
-        throw std::runtime_error(
-                "The sampling rate of the audio file is not equal to the sampling rate "
-                "set by the program.");
-    }
-    for (int64_t j = 0; j < wavReader_.num_samples(); j += window_size_samples_) {
-        auto start = j;
-        auto end = start + window_size_samples_ >= wavReader_.num_samples() ? wavReader_.num_samples() : start + window_size_samples_;
-        current_chunk_size_ = end - start;
-
-        std::vector<float> r{&inputWav_[0] + start, &inputWav_[0] + end};
-        assert(r.size() == current_chunk_size_);
-        
-        if (!ForwardChunk(r)) {
-            fastdeploy::FDERROR << "Failed to inference while using model:"
-                                << ModelName() << "." << std::endl;
-            return false;
-        }
-
-        Postprocess();
-    }
-    return true;
-}
-
-bool Vad::Postprocess() {
+const Vad::State& Vad::Postprocess() {
     // update prob, h, c
     outputProb_ = *(float *)outputTensors_[0].Data();
     auto *hn = static_cast<float *>(outputTensors_[1].MutableData());
@@ -166,26 +159,29 @@ bool Vad::Postprocess() {
 
     if (outputProb_ < threshold_ && !triggerd_ ) {
         // 1. Silence
-        printf("{ silence: %.3f s; prob: %.3f }\n", 1.0 * current_sample_ / sample_rate_, outputProb_);
+        LOG_DEBUG << "{ silence: " << 1.0 * current_sample_ / sample_rate_ << " s; prob: " << outputProb_ <<  " }";
+        states_.emplace_back(Vad::State::SIL);
     } else if ( outputProb_ >= threshold_  && !triggerd_) {
         // 2. Start
         triggerd_ = true;
         speech_start_ = current_sample_ - current_chunk_size_ - speech_pad_left_samples_;
         float start_sec = 1.0 * speech_start_ / sample_rate_;
         speakStart_.emplace_back(start_sec);
-        printf("{ speech start : %.3f s; prob: %.3f }\n", start_sec, outputProb_);
+        LOG_DEBUG << "{ speech start: " << start_sec << " s; prob: " << outputProb_ <<  " }";
+        states_.emplace_back(Vad::State::START);
     } else if ( outputProb_ >= threshold_ - 0.15 && triggerd_) {
         // 3. Continue
 
         if ( temp_end_ != 0 ) {
             // speech prob relaxation, speech continues again
-            printf("{ speech fake end(sil < min_silence_ms) to continue: %.3f s; prob: %.3f;}\n", 1.0 * current_sample_ / sample_rate_, outputProb_);
+            LOG_DEBUG << "{ speech fake end(sil < min_silence_ms) to continue: " << 1.0 * current_sample_ / sample_rate_ << " s; prob: " << outputProb_ <<  " }";
             temp_end_ = 0;
         } else {
             // speech prob relaxation, keep tracking speech
-            printf("{ speech continue : %.3f s; prob: %.3f }\n", 1.0 * current_sample_ / sample_rate_, outputProb_);
+            LOG_DEBUG << "{ speech continue: " << 1.0 * current_sample_ / sample_rate_ << " s; prob: " << outputProb_ <<  " }";
         }
 
+        states_.emplace_back(Vad::State::SPEECH);
     } else if ( outputProb_ < threshold_ - 0.15 && triggerd_) {
         // 4. End
         if ( temp_end_ == 0 ) {
@@ -195,7 +191,8 @@ bool Vad::Postprocess() {
         // check possible speech end
         if (current_sample_ - temp_end_ < min_silence_samples_) {
             // a. silence < min_slience_samples, continue speaking
-            printf("{ speech fake end(sil < min_silence_ms) : %.3f s; prob: %.3f }\n", 1.0 * current_sample_ / sample_rate_, outputProb_);
+            LOG_DEBUG << "{ speech fake end(sil < min_silence_ms): " << 1.0 * current_sample_ / sample_rate_ << " s; prob: " << outputProb_ <<  " }";
+            states_.emplace_back(Vad::State::SIL);
         } else {
             // b. silence >= min_slience_samples, end speaking
             speech_end_ = current_sample_ + speech_pad_right_samples_;
@@ -203,17 +200,18 @@ bool Vad::Postprocess() {
             triggerd_ = false;
             auto end_sec = 1.0 * speech_end_ / sample_rate_;
             speakEnd_.emplace_back(end_sec);
-            printf("{ speech end: %.5f s; prob: %.3f }\n", end_sec, outputProb_);
+            LOG_DEBUG << "{ speech end: " << end_sec << " s; prob: " << outputProb_ <<  " }";
+            states_.emplace_back(Vad::State::END);
         }
     }
 
-    return true;
+    return states_.back();
 }
 
-std::vector<std::map<std::string, float>> Vad::GetResult(
+const std::vector<std::map<std::string, float>> Vad::GetResult(
         float removeThreshold, float expandHeadThreshold, float expandTailThreshold,
-        float mergeThreshold) {
-    float audioLength = 1.0 * wavReader_.num_samples() / sample_rate_;
+        float mergeThreshold) const {
+    float audioLength = 1.0 * current_sample_ / sample_rate_;
     if (speakStart_.empty() && speakEnd_.empty()) {
         return {};
     }
@@ -266,4 +264,27 @@ std::vector<std::map<std::string, float>> Vad::GetResult(
                 {{"start", speakStart_[i]}, {"end", speakEnd_[i]}}));
     }
     return result;
+}
+
+std::ostream& operator<<(std::ostream& os, const Vad::State& s){
+    switch (s)
+    {
+    case Vad::State::SIL:
+        os << "[SIL]";
+        break;
+    case Vad::State::START:
+        os << "[STA]";
+        break;
+    case Vad::State::SPEECH:
+        os << "[SPE]";
+        break;
+    case Vad::State::END:
+        os << "[END]";
+        break;
+    default:
+        // illegal state
+        os << "[ILL]";
+        break;
+    }
+    return os;
 }
