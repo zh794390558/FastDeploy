@@ -34,15 +34,20 @@ Vad::Vad(const std::string& model_file,
     runtime_option = custom_option;
     // ORT backend
     runtime_option.UseCpu();
+#ifndef __ANDROID__
     runtime_option.UseOrtBackend();
-    runtime_option.model_format = fastdeploy::ModelFormat::ONNX;
-    // grap opt level
-    runtime_option.ort_option.graph_optimization_level = 99;
-    // one-thread
-    runtime_option.ort_option.intra_op_num_threads = 1;
-    runtime_option.ort_option.inter_op_num_threads = 1;
+    // runtime_option.model_format = fastdeploy::ModelFormat::ONNX;
+    // // grap opt level
+    // runtime_option.ort_option.graph_optimization_level = 99;
+    // // one-thread
+    // runtime_option.ort_option.intra_op_num_threads = 1;
+    // runtime_option.ort_option.inter_op_num_threads = 1;
+#else
+    runtime_option.UseLiteBackend();
+#endif
+    runtime_option.SetCpuThreadNum(1);
     // model path
-    runtime_option.model_file = model_file;
+    runtime_option.SetModelPath(model_file, "", fastdeploy::ModelFormat::AUTOREC);
   }
 
 void Vad::Init() {

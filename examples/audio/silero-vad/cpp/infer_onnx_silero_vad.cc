@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
       if (!vad.ForwardChunk(r)) {
           std::cerr << "Failed to inference while using model:"
                               << vad.ModelName() << "." << std::endl;
-          return false;
+          return -1;
       }
 
       Vad::State s = vad.Postprocess();
