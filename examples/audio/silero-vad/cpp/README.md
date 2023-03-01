@@ -119,3 +119,4 @@ std::vector<std::map<std::string, float>> Vad::getResult(
 
 - [Model Description](../)
 - [How to switch the model inference backend engine](../../../../docs/en/faq/how_to_change_backend.md)
+- [NDK Revision History](https://developer.android.com/ndk/downloads/revision_history)

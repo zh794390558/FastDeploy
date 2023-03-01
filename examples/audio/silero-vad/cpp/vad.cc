@@ -28,8 +28,8 @@
 Vad::Vad(const std::string& model_file,
       const fastdeploy::RuntimeOption& custom_option /* = fastdeploy::RuntimeOption() */) {
     valid_cpu_backends = {fastdeploy::Backend::ORT,
-                          fastdeploy::Backend::OPENVINO};
-    valid_gpu_backends = {fastdeploy::Backend::ORT, fastdeploy::Backend::TRT};
+                          fastdeploy::Backend::LITE};
+    valid_gpu_backends = {fastdeploy::Backend::ORT};
 
     runtime_option = custom_option;
     // ORT backend
