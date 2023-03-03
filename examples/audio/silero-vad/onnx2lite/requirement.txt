@@ -1,0 +1,6 @@
+x2paddle
+#paddle
+onnx==1.6.0
+six
+packaging
+troch==1.10.0

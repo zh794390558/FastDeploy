@@ -1,0 +1,221 @@
+RecursiveScriptModule(
+  original_name=VADRNNJITMerge
+  (_model): RecursiveScriptModule(
+    original_name=VADRNNJIT
+    (adaptive_normalization): RecursiveScriptModule(original_name=AdaptiveAudioNormalizationNew)
+    (feature_extractor): RecursiveScriptModule(original_name=STFT)
+    (first_layer): RecursiveScriptModule(
+      original_name=Sequential
+      (0): RecursiveScriptModule(
+        original_name=ConvBlock
+        (dw_conv): RecursiveScriptModule(
+          original_name=Sequential
+          (0): RecursiveScriptModule(original_name=Conv1d)
+          (1): RecursiveScriptModule(original_name=Identity)
+          (2): RecursiveScriptModule(original_name=ReLU)
+        )
+        (pw_conv): RecursiveScriptModule(
+          original_name=Sequential
+          (0): RecursiveScriptModule(original_name=Conv1d)
+          (1): RecursiveScriptModule(original_name=Identity)
+        )
+        (proj): RecursiveScriptModule(original_name=Conv1d)
+        (activation): RecursiveScriptModule(original_name=ReLU)
+      )
+      (1): RecursiveScriptModule(original_name=Dropout)
+    )
+    (encoder): RecursiveScriptModule(
+      original_name=Sequential
+      (0): RecursiveScriptModule(original_name=Conv1d)
+      (1): RecursiveScriptModule(original_name=BatchNorm1d)
+      (2): RecursiveScriptModule(original_name=ReLU)
+      (3): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=ConvBlock
+          (dw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+            (2): RecursiveScriptModule(original_name=ReLU)
+          )
+          (pw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+          )
+          (proj): RecursiveScriptModule(original_name=Conv1d)
+          (activation): RecursiveScriptModule(original_name=ReLU)
+        )
+        (1): RecursiveScriptModule(original_name=Dropout)
+      )
+      (4): RecursiveScriptModule(original_name=Conv1d)
+      (5): RecursiveScriptModule(original_name=BatchNorm1d)
+      (6): RecursiveScriptModule(original_name=ReLU)
+      (7): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=ConvBlock
+          (dw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+            (2): RecursiveScriptModule(original_name=ReLU)
+          )
+          (pw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+          )
+          (activation): RecursiveScriptModule(original_name=ReLU)
+        )
+        (1): RecursiveScriptModule(original_name=Dropout)
+      )
+      (8): RecursiveScriptModule(original_name=Conv1d)
+      (9): RecursiveScriptModule(original_name=BatchNorm1d)
+      (10): RecursiveScriptModule(original_name=ReLU)
+      (11): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=ConvBlock
+          (dw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+            (2): RecursiveScriptModule(original_name=ReLU)
+          )
+          (pw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+          )
+          (proj): RecursiveScriptModule(original_name=Conv1d)
+          (activation): RecursiveScriptModule(original_name=ReLU)
+        )
+        (1): RecursiveScriptModule(original_name=Dropout)
+      )
+      (12): RecursiveScriptModule(original_name=Conv1d)
+      (13): RecursiveScriptModule(original_name=BatchNorm1d)
+      (14): RecursiveScriptModule(original_name=ReLU)
+    )
+    (decoder): RecursiveScriptModule(
+      original_name=VADDecoderRNNJIT
+      (rnn): RecursiveScriptModule(original_name=LSTM)
+      (decoder): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(original_name=ReLU)
+        (1): RecursiveScriptModule(original_name=Conv1d)
+        (2): RecursiveScriptModule(original_name=Sigmoid)
+      )
+    )
+  )
+  (_model_8k): RecursiveScriptModule(
+    original_name=VADRNNJIT
+    (adaptive_normalization): RecursiveScriptModule(original_name=AdaptiveAudioNormalizationNew)
+    (feature_extractor): RecursiveScriptModule(original_name=STFT)
+    (first_layer): RecursiveScriptModule(
+      original_name=Sequential
+      (0): RecursiveScriptModule(
+        original_name=ConvBlock
+        (dw_conv): RecursiveScriptModule(
+          original_name=Sequential
+          (0): RecursiveScriptModule(original_name=Conv1d)
+          (1): RecursiveScriptModule(original_name=Identity)
+          (2): RecursiveScriptModule(original_name=ReLU)
+        )
+        (pw_conv): RecursiveScriptModule(
+          original_name=Sequential
+          (0): RecursiveScriptModule(original_name=Conv1d)
+          (1): RecursiveScriptModule(original_name=Identity)
+        )
+        (proj): RecursiveScriptModule(original_name=Conv1d)
+        (activation): RecursiveScriptModule(original_name=ReLU)
+      )
+      (1): RecursiveScriptModule(original_name=Dropout)
+    )
+    (encoder): RecursiveScriptModule(
+      original_name=Sequential
+      (0): RecursiveScriptModule(original_name=Conv1d)
+      (1): RecursiveScriptModule(original_name=BatchNorm1d)
+      (2): RecursiveScriptModule(original_name=ReLU)
+      (3): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=ConvBlock
+          (dw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+            (2): RecursiveScriptModule(original_name=ReLU)
+          )
+          (pw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+          )
+          (proj): RecursiveScriptModule(original_name=Conv1d)
+          (activation): RecursiveScriptModule(original_name=ReLU)
+        )
+        (1): RecursiveScriptModule(original_name=Dropout)
+      )
+      (4): RecursiveScriptModule(original_name=Conv1d)
+      (5): RecursiveScriptModule(original_name=BatchNorm1d)
+      (6): RecursiveScriptModule(original_name=ReLU)
+      (7): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=ConvBlock
+          (dw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+            (2): RecursiveScriptModule(original_name=ReLU)
+          )
+          (pw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+          )
+          (activation): RecursiveScriptModule(original_name=ReLU)
+        )
+        (1): RecursiveScriptModule(original_name=Dropout)
+      )
+      (8): RecursiveScriptModule(original_name=Conv1d)
+      (9): RecursiveScriptModule(original_name=BatchNorm1d)
+      (10): RecursiveScriptModule(original_name=ReLU)
+      (11): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(
+          original_name=ConvBlock
+          (dw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+            (2): RecursiveScriptModule(original_name=ReLU)
+          )
+          (pw_conv): RecursiveScriptModule(
+            original_name=Sequential
+            (0): RecursiveScriptModule(original_name=Conv1d)
+            (1): RecursiveScriptModule(original_name=Identity)
+          )
+          (proj): RecursiveScriptModule(original_name=Conv1d)
+          (activation): RecursiveScriptModule(original_name=ReLU)
+        )
+        (1): RecursiveScriptModule(original_name=Dropout)
+      )
+      (12): RecursiveScriptModule(original_name=Conv1d)
+      (13): RecursiveScriptModule(original_name=BatchNorm1d)
+      (14): RecursiveScriptModule(original_name=ReLU)
+    )
+    (decoder): RecursiveScriptModule(
+      original_name=VADDecoderRNNJIT
+      (rnn): RecursiveScriptModule(original_name=LSTM)
+      (decoder): RecursiveScriptModule(
+        original_name=Sequential
+        (0): RecursiveScriptModule(original_name=ReLU)
+        (1): RecursiveScriptModule(original_name=Conv1d)
+        (2): RecursiveScriptModule(original_name=Sigmoid)
+      )
+    )
+  )
+)
