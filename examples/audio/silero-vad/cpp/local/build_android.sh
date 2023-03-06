@@ -1,5 +1,6 @@
 ANDROID_NDK=/workspace/zhanghui/android-sdk/android-ndk-r25c
-FASTDEPLOY_INSTALL_DIR=./fdlib/fastdeploy-android-1.0.4-shared/
+#FASTDEPLOY_INSTALL_DIR=./fdlib/fastdeploy-android-1.0.4-shared/
+FASTDEPLOY_INSTALL_DIR=/workspace/zhanghui/paddle/FastDeploy/build/Android/arm64-v8a-api-21/install
 
 # Setting up Android toolchanin
 ANDROID_ABI=arm64-v8a  # 'arm64-v8a', 'armeabi-v7a'

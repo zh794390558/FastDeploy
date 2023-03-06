@@ -65,7 +65,9 @@ class Vad : public fastdeploy::FastDeployModel {
   bool Initialize();
 
  private:
-  std::once_flag init_;
+    //  std::once_flag init_;
+  std::mutex init_;
+  bool initialized_;
   // input and output
   std::vector<fastdeploy::FDTensor> inputTensors_;
   std::vector<fastdeploy::FDTensor> outputTensors_;

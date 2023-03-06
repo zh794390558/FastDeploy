@@ -38,7 +38,6 @@ int main(int argc, char* argv[]) {
 
       std::vector<float> r{&inputWav[0] + start, &inputWav[0] + end};
       assert(r.size() == current_chunk_size);
-      
       if (!vad.ForwardChunk(r)) {
           std::cerr << "Failed to inference while using model:"
                               << vad.ModelName() << "." << std::endl;

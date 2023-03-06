@@ -26,7 +26,7 @@
 #endif
 
 Vad::Vad(const std::string& model_file,
-      const fastdeploy::RuntimeOption& custom_option /* = fastdeploy::RuntimeOption() */) {
+      const fastdeploy::RuntimeOption& custom_option /* = fastdeploy::RuntimeOption() */) :initialized_(false) {
     valid_cpu_backends = {fastdeploy::Backend::ORT,
                           fastdeploy::Backend::LITE};
     valid_gpu_backends = {fastdeploy::Backend::ORT};
@@ -35,6 +35,7 @@ Vad::Vad(const std::string& model_file,
     // ORT backend
     runtime_option.UseCpu();
 #ifndef __ANDROID__
+    fastdeploy::FDINFO << "Ort Backend";
     runtime_option.UseOrtBackend();
     // runtime_option.model_format = fastdeploy::ModelFormat::ONNX;
     // // grap opt level
@@ -42,25 +43,25 @@ Vad::Vad(const std::string& model_file,
     // // one-thread
     // runtime_option.ort_option.intra_op_num_threads = 1;
     // runtime_option.ort_option.inter_op_num_threads = 1;
+    runtime_option.SetModelPath(model_file, "", fastdeploy::ModelFormat::ONNX);
 #else
     runtime_option.UseLiteBackend();
+    runtime_option.SetModelPath(model_file, "", fastdeploy::ModelFormat::PADDLE);
 #endif
     runtime_option.SetCpuThreadNum(1);
-    // model path
-    runtime_option.SetModelPath(model_file, "", fastdeploy::ModelFormat::AUTOREC);
+    fastdeploy::FDINFO << "Vad Construct.";
   }
 
 void Vad::Init() {
-    std::call_once(init_, [&]() {
-      initialized = Initialize(); 
-    });
+    std::lock_guard<std::mutex> guard(init_);
+    Initialize();
 }
 
 std::string Vad::ModelName() const { return "VAD"; }
 
 void Vad::SetConfig(int sr, int frame_ms, float threshold,
                         int min_silence_duration_ms, int speech_pad_left_ms, int speech_pad_right_ms) {
-    if (initialized) {
+    if (initialized_) {
         fastdeploy::FDERROR << "SetConfig must be called before init"
                             << std::endl;
         throw std::runtime_error("SetConfig must be called before init");
@@ -100,6 +101,7 @@ void Vad::Reset() {
 }
 
 bool Vad::Initialize() {
+    fastdeploy::FDINFO << "Initialize.";
     // input & output holder
     inputTensors_.resize(4);
     outputTensors_.resize(3);
@@ -123,6 +125,7 @@ bool Vad::Initialize() {
         return false;
     }
     fastdeploy::FDINFO << "init done.";
+    initialized_ =true;
     return true;
 }
 
