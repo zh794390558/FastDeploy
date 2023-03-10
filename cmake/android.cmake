@@ -234,5 +234,12 @@ function(set_android_third_libs_installation)
         )
       endif()
     endif()
+    # Some libs may not to install while in static mode
+    if(ENABLE_ORT_BACKEND)
+        install(
+          DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/third_libs/install/onnxruntime
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/third_libs/install
+        )
+    endif()
   endif()
 endfunction()

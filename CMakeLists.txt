@@ -209,7 +209,7 @@ if(WITH_SW)
 endif()
 
 if(ENABLE_ORT_BACKEND)
-  # set(ENABLE_PADDLE2ONNX ON)
+  set(ENABLE_PADDLE2ONNX OFF)
   add_definitions(-DENABLE_ORT_BACKEND)
   list(APPEND ALL_DEPLOY_SRCS ${DEPLOY_ORT_SRCS})
   include(${PROJECT_SOURCE_DIR}/cmake/onnxruntime.cmake)
