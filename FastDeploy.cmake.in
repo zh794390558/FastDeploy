@@ -124,6 +124,8 @@ if(ENABLE_ORT_BACKEND)
   message(STATUS "The path of ONNXRuntime is ${ORT_LIB_PATH}.")
   find_library(ORT_LIB onnxruntime ${ORT_LIB_PATH}  NO_DEFAULT_PATH)
   list(APPEND FASTDEPLOY_LIBS ${ORT_LIB})
+  message(STATUS "ORT_LIB=${ORT_LIB}")
+  message(STATUS "FASTDEPLOY_LIBS=${FASTDEPLOY_LIBS}")
 endif()
 
 if(ENABLE_PADDLE_BACKEND)

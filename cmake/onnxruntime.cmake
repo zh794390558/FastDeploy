@@ -65,6 +65,12 @@ elseif(APPLE)
   else()
     set(ONNXRUNTIME_FILENAME "onnxruntime-osx-x86_64-${ONNXRUNTIME_VERSION}.tgz")
   endif()
+elseif(ANDROID)
+  if(ANDROID_ABI MATCHES "arm64-v8a")
+    set(ONNXRUNTIME_FILENAME "onnxruntime-android-arm64-v8a-${ONNXRUNTIME_VERSION}.tgz")
+  else()
+    set(ONNXRUNTIME_FILENAME "onnxruntime-android-armeabi-v7a-${ONNXRUNTIME_VERSION}.tgz")
+  endif()
 else()
   if(WITH_GPU)
     if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64")
@@ -81,7 +87,12 @@ else()
     endif()
   endif()
 endif()
-set(ONNXRUNTIME_URL "${ONNXRUNTIME_URL_PREFIX}${ONNXRUNTIME_FILENAME}")
+
+if(ANDROID)
+  set(ONNXRUNTIME_URL "file:///workspace/zhanghui/onnx/libonnxruntime-arm64-v8a-1.12.0.tar.gz")
+else()
+  set(ONNXRUNTIME_URL "${ONNXRUNTIME_URL_PREFIX}${ONNXRUNTIME_FILENAME}")
+endif()
 
 include_directories(${ONNXRUNTIME_INC_DIR}
 )# For ONNXRUNTIME code to include internal headers.
@@ -113,12 +124,14 @@ if (NOT ORT_DIRECTORY)
     INSTALL_COMMAND
       ${CMAKE_COMMAND} -E remove_directory ${ONNXRUNTIME_INSTALL_DIR} &&
       ${CMAKE_COMMAND} -E make_directory ${ONNXRUNTIME_INSTALL_DIR} &&
+      ${CMAKE_COMMAND} -E make_directory ${ONNXRUNTIME_INSTALL_DIR}/lib &&
+      ${CMAKE_COMMAND} -E make_directory ${ONNXRUNTIME_INSTALL_DIR}/include &&
       ${CMAKE_COMMAND} -E rename ${ONNXRUNTIME_SOURCE_DIR}/lib/ ${ONNXRUNTIME_INSTALL_DIR}/lib &&
       ${CMAKE_COMMAND} -E copy_directory ${ONNXRUNTIME_SOURCE_DIR}/include
       ${ONNXRUNTIME_INC_DIR}
     BUILD_BYPRODUCTS ${ONNXRUNTIME_LIB})
 endif()
-
+message(STATUS "ONNXRUNTIME_LIB=${ONNXRUNTIME_LIB}")
 add_library(external_onnxruntime STATIC IMPORTED GLOBAL)
 set_property(TARGET external_onnxruntime PROPERTY IMPORTED_LOCATION ${ONNXRUNTIME_LIB})
 add_dependencies(external_onnxruntime ${ONNXRUNTIME_PROJECT})

@@ -209,7 +209,7 @@ if(WITH_SW)
 endif()
 
 if(ENABLE_ORT_BACKEND)
-  set(ENABLE_PADDLE2ONNX ON)
+  # set(ENABLE_PADDLE2ONNX ON)
   add_definitions(-DENABLE_ORT_BACKEND)
   list(APPEND ALL_DEPLOY_SRCS ${DEPLOY_ORT_SRCS})
   include(${PROJECT_SOURCE_DIR}/cmake/onnxruntime.cmake)
@@ -480,7 +480,12 @@ if(MSVC)
   set_source_files_properties(${FD_FILES_REQUIRE_BIGOBJ} PROPERTIES COMPILE_FLAGS "/bigobj")
 endif()
 
+# link_libraries("/workspace/zhanghui/onnx/install/liblibonnxruntime.so")
+# include_directories("/workspace/zhanghui/onnx/install/include/")
+
 target_link_libraries(${LIBRARY_NAME} ${DEPEND_LIBS})
+
+message(STATUS "LIBRARY_NAME=${LIBRARY_NAME},  DEPEND_LIBS=${DEPEND_LIBS}")
 if(ANDROID)
   set_android_extra_libraries_target()
 endif()
