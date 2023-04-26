@@ -24,6 +24,10 @@ void PaddleBackend::BuildOption(const PaddleBackendOption& option) {
   option_ = option;
   if (option.device == Device::GPU) {
     config_.EnableUseGpu(option.gpu_mem_init_size, option.device_id);
+    if (option_.switch_ir_debug) {
+      FDINFO << "Will Enable ir_debug for Paddle Backend." << std::endl;
+      config_.SwitchIrDebug();
+    }
     if (option_.external_stream_) {
       FDINFO << "Will use external stream for Paddle Backend." << std::endl;
       config_.SetExecStream(option_.external_stream_);
@@ -113,33 +117,25 @@ bool PaddleBackend::Init(const RuntimeOption& runtime_option) {
   option.paddle_infer_option.external_stream_ = runtime_option.external_stream_;
   option.paddle_infer_option.trt_option = runtime_option.trt_option;
   option.paddle_infer_option.trt_option.gpu_id = runtime_option.device_id;
-  if (option.model_from_memory_) {
-    return InitFromPaddle(option.model_file, option.params_file,
-                          option.paddle_infer_option);
-  } else {
-    std::string model_buffer = "";
-    std::string params_buffer = "";
-    FDASSERT(ReadBinaryFromFile(option.model_file, &model_buffer),
-             "Failed to read model file from %s.", option.model_file.c_str());
-    FDASSERT(ReadBinaryFromFile(option.params_file, &params_buffer),
-             "Failed to read parameters file from %s.",
-             option.params_file.c_str());
-    return InitFromPaddle(model_buffer, params_buffer,
-                          option.paddle_infer_option);
-  }
-  return false;
+  return InitFromPaddle(option.model_file, option.params_file,
+                        option.model_from_memory_, option.paddle_infer_option);
 }
 
-bool PaddleBackend::InitFromPaddle(const std::string& model_buffer,
-                                   const std::string& params_buffer,
+bool PaddleBackend::InitFromPaddle(const std::string& model,
+                                   const std::string& params,
+                                   bool model_from_memory,
                                    const PaddleBackendOption& option) {
   if (initialized_) {
     FDERROR << "PaddleBackend is already initlized, cannot initialize again."
             << std::endl;
     return false;
   }
-  config_.SetModelBuffer(model_buffer.c_str(), model_buffer.size(),
-                         params_buffer.c_str(), params_buffer.size());
+  if (model_from_memory) {
+    config_.SetModelBuffer(model.c_str(), model.size(), params.c_str(),
+                           params.size());
+  } else {
+    config_.SetModel(model, params);
+  }
   if (option.enable_memory_optimize) {
     config_.EnableMemoryOptim();
   }
@@ -147,8 +143,13 @@ bool PaddleBackend::InitFromPaddle(const std::string& model_buffer,
 
   // The input/output information get from predictor is not right, use
   // PaddleReader instead now
+  std::string model_content = model;
+  if (!model_from_memory) {
+    FDASSERT(ReadBinaryFromFile(model, &model_content),
+             "Failed to read file %s.", model.c_str());
+  }
   auto reader =
-      paddle2onnx::PaddleReader(model_buffer.c_str(), model_buffer.size());
+      paddle2onnx::PaddleReader(model_content.c_str(), model_content.size());
   // If it's a quantized model, and use cpu with mkldnn, automaticaly switch to
   // int8 mode
   if (reader.is_quantize_model) {
@@ -213,19 +214,29 @@ bool PaddleBackend::InitFromPaddle(const std::string& model_buffer,
     if (!CheckFileExists(shape_range_info)) {
       FDINFO << "Start generating shape range info file." << std::endl;
       paddle_infer::Config analysis_config;
-      analysis_config.SetModelBuffer(model_buffer.c_str(), model_buffer.size(),
-                                     params_buffer.c_str(),
-                                     params_buffer.size());
+      if (model_from_memory) {
+        analysis_config.SetModelBuffer(model.c_str(), model.size(),
+                                       params.c_str(), params.size());
+      } else {
+        analysis_config.SetModel(model, params);
+      }
       analysis_config.CollectShapeRangeInfo(shape_range_info);
       auto predictor_tmp = paddle_infer::CreatePredictor(analysis_config);
       std::map<std::string, std::vector<int>> max_shape;
       std::map<std::string, std::vector<int>> min_shape;
       std::map<std::string, std::vector<int>> opt_shape;
       GetDynamicShapeFromOption(option, &max_shape, &min_shape, &opt_shape);
+      std::map<std::string, std::vector<float>> max_input_data;
+      std::map<std::string, std::vector<float>> min_input_data;
+      std::map<std::string, std::vector<float>> opt_input_data;
+      if (!option.trt_option.min_input_data.empty()) {
+        GetInputDataFromOption(option, &max_input_data, &min_input_data,
+                               &opt_input_data);
+      }
       // Need to run once to get the shape range info file.
-      CollectShapeRun(predictor_tmp.get(), max_shape);
-      CollectShapeRun(predictor_tmp.get(), min_shape);
-      CollectShapeRun(predictor_tmp.get(), opt_shape);
+      CollectShapeRun(predictor_tmp.get(), max_shape, max_input_data);
+      CollectShapeRun(predictor_tmp.get(), min_shape, min_input_data);
+      CollectShapeRun(predictor_tmp.get(), opt_shape, min_input_data);
       FDINFO << "Finish generating shape range info file." << std::endl;
     }
     FDINFO << "Start loading shape range info file " << shape_range_info
@@ -284,7 +295,6 @@ bool PaddleBackend::Infer(std::vector<FDTensor>& inputs,
     auto handle = predictor_->GetInputHandle(inputs[i].name);
     ShareTensorFromFDTensor(handle.get(), inputs[i]);
   }
-  std::unordered_set<std::string> prebinded_output_name;
   // prebinded output only support for GPU
   if (!copy_to_fd) {
     for (size_t i = 0; i < (*outputs).size(); ++i) {
@@ -298,7 +308,6 @@ bool PaddleBackend::Infer(std::vector<FDTensor>& inputs,
       // Record the prebinded output_name.
       // Those outputs do not need PaddleTensorToFDTensor
       // after predictor_.Run()
-      prebinded_output_name.insert(output_name);
       auto handle = predictor_->GetOutputHandle(output_name);
       ShareOutTensorFromFDTensor(handle.get(), (*outputs)[i]);
     }
@@ -310,11 +319,6 @@ bool PaddleBackend::Infer(std::vector<FDTensor>& inputs,
 
   outputs->resize(outputs_desc_.size());
   for (size_t i = 0; i < outputs_desc_.size(); ++i) {
-    // skip prebinded output
-    if (copy_to_fd == false &&
-        prebinded_output_name.count(outputs_desc_[i].name)) {
-      continue;
-    }
     auto handle = predictor_->GetOutputHandle(outputs_desc_[i].name);
     if (copy_to_fd) {
       (*outputs)[i].is_pinned_memory = option_.enable_pinned_memory;
@@ -335,27 +339,10 @@ std::unique_ptr<BaseBackend> PaddleBackend::Clone(RuntimeOption& runtime_option,
     auto clone_option = option_;
     clone_option.device_id = device_id;
     clone_option.external_stream_ = stream;
-    if (runtime_option.model_from_memory_) {
-      FDASSERT(
-          casted_backend->InitFromPaddle(runtime_option.model_file,
-                                         runtime_option.params_file,
-                                         clone_option),
-          "Clone model from Paddle failed while initialize PaddleBackend.");
-    } else {
-      std::string model_buffer = "";
-      std::string params_buffer = "";
-      FDASSERT(
-          ReadBinaryFromFile(clone_option.model_file, &model_buffer),
-          "Fail to read binary from model file while cloning PaddleBackend");
-      FDASSERT(ReadBinaryFromFile(clone_option.params_file, &params_buffer),
-               "Fail to read binary from parameter file while cloning "
-               "PaddleBackend");
-      FDASSERT(
-          casted_backend->InitFromPaddle(model_buffer, params_buffer,
-                                         clone_option),
-          "Clone model from Paddle failed while initialize PaddleBackend.");
-    }
-
+    FDASSERT(casted_backend->InitFromPaddle(
+                 runtime_option.model_file, runtime_option.params_file,
+                 runtime_option.model_from_memory_, clone_option),
+             "Clone model from Paddle failed while initialize PaddleBackend.");
     FDWARNING << "The target device id:" << device_id
               << " is different from current device id:" << option_.device_id
               << ", cannot share memory with current engine." << std::endl;
@@ -420,9 +407,33 @@ void PaddleBackend::GetDynamicShapeFromOption(
   }
 }
 
+void PaddleBackend::GetInputDataFromOption(
+    const PaddleBackendOption& option,
+    std::map<std::string, std::vector<float>>* max_input_data,
+    std::map<std::string, std::vector<float>>* min_input_data,
+    std::map<std::string, std::vector<float>>* opt_input_data) const {
+  for (const auto& item : option.trt_option.min_input_data) {
+    auto max_iter = option.trt_option.max_input_data.find(item.first);
+    auto opt_iter = option.trt_option.opt_input_data.find(item.first);
+    FDASSERT(max_iter != option.trt_option.max_input_data.end(),
+             "Cannot find %s in TrtBackendOption::min_input_data.",
+             item.first.c_str());
+    FDASSERT(opt_iter != option.trt_option.opt_input_data.end(),
+             "Cannot find %s in TrtBackendOption::opt_input_data.",
+             item.first.c_str());
+    (*max_input_data)[item.first].assign(max_iter->second.begin(),
+                                         max_iter->second.end());
+    (*opt_input_data)[item.first].assign(opt_iter->second.begin(),
+                                         opt_iter->second.end());
+    (*min_input_data)[item.first].assign(item.second.begin(),
+                                         item.second.end());
+  }
+}
+
 void PaddleBackend::CollectShapeRun(
     paddle_infer::Predictor* predictor,
-    const std::map<std::string, std::vector<int>>& shape) const {
+    const std::map<std::string, std::vector<int>>& shape,
+    const std::map<std::string, std::vector<float>>& data) const {
   auto input_names = predictor->GetInputNames();
   auto input_type = predictor->GetInputTypes();
   for (const auto& name : input_names) {
@@ -438,21 +449,47 @@ void PaddleBackend::CollectShapeRun(
     int shape_num = std::accumulate(shape_value.begin(), shape_value.end(), 1,
                                     std::multiplies<int>());
     tensor->Reshape(shape_value);
+
+    if (data.find(name) != data.end()) {
+      FDASSERT(data.at(name).size() == shape_num,
+               "The data num and accumulate of shape must be equal for input: "
+               "[\"%s\"], "
+               " When Use the (C++)RuntimeOption.trt_option.SetInputData/ "
+               " (Python)RuntimeOption.trt_option.set_input_data/",
+               name.c_str());
+    }
+
     auto dtype = input_type[name];
     switch (dtype) {
       case paddle_infer::DataType::FLOAT32: {
-        std::vector<float> input_data(shape_num, 1.0);
-        tensor->CopyFromCpu(input_data.data());
+        if (data.find(name) != data.end()) {
+          tensor->CopyFromCpu(data.at(name).data());
+        } else {
+          std::vector<float> input_data(shape_num, 1.0);
+          tensor->CopyFromCpu(input_data.data());
+        }
         break;
       }
       case paddle_infer::DataType::INT32: {
-        std::vector<int> input_data(shape_num, 1);
-        tensor->CopyFromCpu(input_data.data());
+        if (data.find(name) != data.end()) {
+          std::vector<int> input_data(data.at(name).begin(),
+                                      data.at(name).end());
+          tensor->CopyFromCpu(input_data.data());
+        } else {
+          std::vector<int> input_data(shape_num, 1);
+          tensor->CopyFromCpu(input_data.data());
+        }
         break;
       }
       case paddle_infer::DataType::INT64: {
-        std::vector<int64_t> input_data(shape_num, 1);
-        tensor->CopyFromCpu(input_data.data());
+        if (data.find(name) != data.end()) {
+          std::vector<int64_t> input_data(data.at(name).begin(),
+                                          data.at(name).end());
+          tensor->CopyFromCpu(input_data.data());
+        } else {
+          std::vector<int64_t> input_data(shape_num, 1);
+          tensor->CopyFromCpu(input_data.data());
+        }
         break;
       }
       default: {

@@ -15,6 +15,7 @@ readonly ANDROID_ABI=$1
 readonly ANDROID_PLATFORM="android-$2"
 readonly BUILD_ROOT=build/Android
 readonly BUILD_DIR=${BUILD_ROOT}/${ANDROID_ABI}-api-$2
+readonly ANDROID_NDK=~/Library/Android/sdk/ndk/20.0.5594570/
 
 # -------------------------------------------------------------------------------
 #                                 tasks
@@ -86,16 +87,17 @@ __build_fastdeploy_android_shared() {
         -DANDROID_PLATFORM=${ANDROID_PLATFORM} \
         -DANDROID_STL=${ANDROID_STL} \
         -DANDROID_TOOLCHAIN=${ANDROID_TOOLCHAIN} \
-        -DENABLE_ORT_BACKEND=OFF \
-        -DENABLE_LITE_BACKEND=ON \
+        -DENABLE_ORT_BACKEND=ON \
+        -DENABLE_LITE_BACKEND=OFF \
         -DENABLE_PADDLE2ONNX=OFF \
-        -DENABLE_FLYCV=ON \
+        -DENABLE_FLYCV=OFF \
         -DENABLE_TEXT=OFF \
-        -DENABLE_VISION=ON \
-        -DBUILD_EXAMPLES=ON \
+		-DENABLE_VISION=OFF \
+        -DBUILD_EXAMPLES=OFF \
         -DWITH_ANDROID_OPENCV_STATIC=OFF \
         -DWITH_ANDROID_LITE_STATIC=OFF \
         -DWITH_ANDROID_OPENMP=OFF \
+		-DORT_DIRECTORY=/Users/masimeng/Documents/vad/libs/onnxruntime/Android/${ANDROID_ABI} \
         -DCMAKE_INSTALL_PREFIX=${FASDEPLOY_INSTALL_DIR} \
         -Wno-dev ../../.. && make -j8 && make install
 
