@@ -74,18 +74,25 @@ class PaddleBackend : public BaseBackend {
  private:
   void BuildOption(const PaddleBackendOption& option);
 
-  bool InitFromPaddle(const std::string& model_buffer,
-                     const std::string& params_buffer,
+  bool InitFromPaddle(const std::string& model,
+                     const std::string& params,
+                     bool model_from_memory,
                      const PaddleBackendOption& option = PaddleBackendOption());
 
   void
   CollectShapeRun(paddle_infer::Predictor* predictor,
-                  const std::map<std::string, std::vector<int>>& shape) const;
+                  const std::map<std::string, std::vector<int>>& shape,
+                  const std::map<std::string, std::vector<float>>& data) const;
   void GetDynamicShapeFromOption(
       const PaddleBackendOption& option,
       std::map<std::string, std::vector<int>>* max_shape,
       std::map<std::string, std::vector<int>>* min_shape,
       std::map<std::string, std::vector<int>>* opt_shape) const;
+  void GetInputDataFromOption(
+    const PaddleBackendOption& option,
+    std::map<std::string, std::vector<float>>* max_input_data,
+    std::map<std::string, std::vector<float>>* min_input_data,
+    std::map<std::string, std::vector<float>>* opt_input_data) const;
   void SetTRTDynamicShapeToConfig(const PaddleBackendOption& option);
   PaddleBackendOption option_;
   paddle_infer::Config config_;

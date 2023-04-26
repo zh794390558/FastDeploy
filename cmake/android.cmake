@@ -32,9 +32,9 @@ endif()
 
 # Check Android ABI policy.
 function(check_android_options_policy)
-  if((NOT ANDROID_ABI MATCHES "armeabi-v7a") AND (NOT ANDROID_ABI MATCHES "arm64-v8a"))
-    message(FATAL_ERROR "FastDeploy with FlyCV only support armeabi-v7a, arm64-v8a now.")
-  endif()
+	#if((NOT ANDROID_ABI MATCHES "armeabi-v7a") AND (NOT ANDROID_ABI MATCHES "arm64-v8a"))
+  	#  message(FATAL_ERROR "FastDeploy with FlyCV only support armeabi-v7a, arm64-v8a now.")
+  	#endif()
   if(ENABLE_FLYCV OR ENABLE_TEXT OR ENABLE_LITE_BACKEND OR WITH_ANDROID_OPENMP)
     if(NOT ANDROID_TOOLCHAIN MATCHES "clang")
       message(FATAL_ERROR "Currently, only support clang toolchain while cross compiling FastDeploy for Android with Paddle Lite/FlyCV/FastTokenizer/OpenMP, but found ${ANDROID_TOOLCHAIN}.")
