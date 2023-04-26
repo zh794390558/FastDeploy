@@ -220,6 +220,7 @@ bool OrtBackend::InitFromOnnx(const std::string& model_file,
   }
   std::string onnx_model_buffer;
   if (option.enable_fp16) {
+#ifdef ENABLE_PADDLE2ONNX
     if (option.device == Device::CPU) {
       FDWARNING << "Turning on FP16 on CPU may result in slower inference."
                 << std::endl;
@@ -231,10 +232,13 @@ bool OrtBackend::InitFromOnnx(const std::string& model_file,
     std::string onnx_model_proto(model_content_ptr,
                                  model_content_ptr + model_content_size);
     onnx_model_buffer = onnx_model_proto;
+#else
+	FDWARNING << "while enable fp16 in Ort backend, require build with ENABLE_PADDLE2ONNX=ON" << std::endl;
+	onnx_model_buffer = model_file;
+#endif
   } else {
     onnx_model_buffer = model_file;
   }
-
   if (!BuildOption(option)) {
     FDERROR << "Create Ort option fail." << std::endl;
     return false;
